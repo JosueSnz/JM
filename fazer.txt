@@ -1,0 +1,19 @@
+Partes do codigo do JM: 
+
+Sensores de temperatura (os dois)
+
+TPS (Josué) 
+--  Parcialmente conluido, falta ver a amplitude do TPS oficial 29-03-24
+
+Cebolinha (os dois)
+
+Infravermelho (Josué)
+
+Leds de velocidade (Maria)
+-- Parcialmente concluido, falta ver a amplitude do TPS oficial 29-03-24
+
+Display (Maria)
+
+Cartão SD (os dois)
+
+Led de verificacao SD
