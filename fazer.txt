@@ -1,19 +1,26 @@
 Partes do codigo do JM: 
 
-Sensores de temperatura (os dois)
+Sensores de temperatura 
+-- Sensor que sera ligado no barramento i2C
 
-TPS (Josué) 
---  Parcialmente conluido, falta ver a amplitude do TPS oficial 29-03-24
+TPS 
+-- Parcialmente conluido, falta ver a amplitude do TPS oficial 
 
-Cebolinha (os dois)
+Cebolinha 
+-- Pressao sendo registrada
 
-Infravermelho (Josué)
+Infravermelho 
+-- Parcialmente concluido, regular raio da roda e sensibildade do sensor
 
-Leds de velocidade (Maria)
--- Parcialmente concluido, falta ver a amplitude do TPS oficial 29-03-24
+Leds de velocidade 
+-- Parcialmente concluido, falta ver a amplitude do TPS oficial 
 
-Display (Maria)
+Display 
+-- Sera ligado no barramento i2C
 
-Cartão SD (os dois)
+Cartão SD 
+-- Led de verificacao SD pronto
+-- Esperando modulo novo 
 
-Led de verificacao SD
+Luz de freios
+-- Conectar a luz de freios ao sinal do Cebolinha, caso necessario alimentar com 12v
