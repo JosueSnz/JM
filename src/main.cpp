@@ -61,11 +61,11 @@ void setup()
     // Inicializa o cartão SD com o pino CS especificado
     if (!SD.begin(SD_CS_PIN))
     {
-        SerialBT.println("Erro ao inicializar o cartão SD");
+        Serial.println("Erro ao inicializar o cartão SD");
         digitalWrite(LED_BUILTIN, HIGH);
         return;
     }
-    SerialBT.println("Cartão SD inicializado com sucesso");
+    Serial.println("Cartão SD inicializado com sucesso");
 
     // Inicializando os pinos dos LEDs
     pinMode(LED_vermelho, OUTPUT);
@@ -109,29 +109,11 @@ void loop()
     // Verificar se os valores estão dentro da margem de 5%
     if (abs(sensorTPS1 - sensorTPS2) <= 0.10 * sensorTPS1)
     {
-
         // Mapeando o valor do sensor para o valor do led, verificar amplitude do TPS
         outputVeTPS = map(sensorTPS1, 0, 1023, 0, 255);
         outputATPS = map(sensorTPS1, 1023, 2046, 0, 255);
         outputA2TPS = map(sensorTPS1, 2046, 3069, 0, 255);
         outputVTPS = map(sensorTPS1, 3069, 4095, 0, 255);
-
-        // Controlando a taxa de variação dos LEDs
-        if (sensorTPS1 <= 1023)
-        {
-            outputATPS = 0;
-            outputA2TPS = 0;
-            outputVTPS = 0;
-        }
-        else if (sensorTPS1 <= 2046)
-        {
-            outputA2TPS = 0;
-            outputVTPS = 0;
-        }
-        else if (sensorTPS1 <= 3069)
-        {
-            outputVTPS = 0;
-        }
 
         // Mudando a intensidade do led
         analogWrite(LED_vermelho, outputVTPS);
@@ -142,7 +124,7 @@ void loop()
     else
     {
         // Caso os valores estejam fora da margem de 10% apenas o led vermelho é aceso (100% do TPS)
-        SerialBT.print("\nOs valores dos sensores estão fora da margem de 10%");
+        Serial.print("\nOs valores dos sensores estão fora da margem de 10%");
         analogWrite(LED_vermelho, 255);
         analogWrite(LED_azul, 0);
         analogWrite(LED_azul2, 0);
@@ -152,14 +134,14 @@ void loop()
     //-----------------------------
 
     // Resultados dos sensores Terminal
-    SerialBT.print("\nTPS1 = ");
-    SerialBT.println(sensorTPS1);
-    SerialBT.print("\nTPS2 = ");
-    SerialBT.println(sensorTPS2);
-    SerialBT.print("\nCEBOLINHA = ");
-    SerialBT.println(sensorCEBOLINHA);
-    SerialBT.print("\nVelocidade = ");
-    SerialBT.println(velocidade);
+    Serial.print("\nTPS1 = ");
+    Serial.println(sensorTPS1);
+    Serial.print("\nTPS2 = ");
+    Serial.println(sensorTPS2);
+    Serial.print("\nCEBOLINHA = ");
+    Serial.println(sensorCEBOLINHA);
+    Serial.print("\nVelocidade = ");
+    Serial.println(velocidade);
 
     // Gravando os dados no cartão SD
     if (dataFile)
@@ -177,7 +159,7 @@ void loop()
     }
     else
     {
-        SerialBT.println("Erro ao abrir o arquivo");
+        Serial.println("Erro ao abrir o arquivo");
     }
     delay(150);
 }
