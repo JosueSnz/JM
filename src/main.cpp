@@ -62,7 +62,6 @@ void setup()
     if (!SD.begin(SD_CS_PIN))
     {
         Serial.println("Erro ao inicializar o cartão SD");
-        digitalWrite(LED_BUILTIN, HIGH);
         return;
     }
     Serial.println("Cartão SD inicializado com sucesso");
@@ -72,6 +71,7 @@ void setup()
     pinMode(LED_azul, OUTPUT);
     pinMode(LED_azul2, OUTPUT);
     pinMode(LED_verde, OUTPUT);
+    pinMode(LED_BUILTIN, OUTPUT);
 
     pinMode(CEBOLINHA, INPUT); // Pino para ler o sinal no sensor de pressão
     pinMode(infra1, INPUT);    // Pino para ler o sinal no coletor do fototransistor
@@ -155,7 +155,8 @@ void loop()
         dataFile.print("\nVelocidade = ");
         dataFile.println(velocidade);
         dataFile.close();
-        SerialBT.println("Dados gravados com sucesso");
+        Serial.println("Dados gravados com sucesso");
+        digitalWrite(LED_BUILTIN, HIGH);
     }
     else
     {
