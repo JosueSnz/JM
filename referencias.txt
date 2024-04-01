@@ -1,0 +1,3 @@
+https://blog.zerokol.com/2012/11/tcrt5000-reflective-optical-sensor.html // como conectar o sensor Infravermelho
+https://www.youtube.com/watch?v=V34pW5XT2tU // usando o barramento i2C
+https://www.youtube.com/watch?v=5OSPk5oHhVM // como conectar um LCD pelo barramento i2C
