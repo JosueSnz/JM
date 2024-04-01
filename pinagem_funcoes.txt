@@ -1,0 +1,36 @@
+INPUT
+2 tps (GND - 5v - 1sinal)
+1 cebolinha (GND - 5v - 1sinal)
+2 infravermelho velocidade (GND - 5v - 1sinal)
+
+OUTPUT
+4 cartao sd (GND - 5v - 4sinal)
+4 leds piloto (GND - 1sinal)
+1 led verificacao SD (GND - 1sinal)
+
+INPUT/OUTPUT
+2 modulo i2c lcd (GND - 5v - 2sinal)
+4 sensores de temperatura (GND - 3v - 2sinal) 
+
+------------------------------------
+
+PINAGEM
+GPIO 32,33 TPS
+GPIO 25 Cebolinha
+GPIO 34,35 Infravermelho
+
+GPIO 14,12,13,15 Cartao SD
+GPIO 19,18,5,17 led piloto
+GPIO 16 led verificação SD
+
+GPIO 22,21 Modulo i2c - sensor de temperatura e LCD
+
+5v0 tensão de alimentacao
+GND qualquer uma das 3
+
+------------------------------------
+
+PINOS LIVRES e utilizaveis
+GPIO 36,39,23,4,0,2
+
+
