@@ -15,7 +15,7 @@ char valorRecebido;       // Variável para armazenar o valor recebido
 #define LED_vermelho 19 // Até 100% do TPS
 #define LED_azul 18     // Até 75% do TPS
 #define LED_azul2 5     // Até 50% do TPS
-#define LED_verde 9     // Até 25% do TPS
+#define LED_verde 17    // Até 25% do TPS
 //-----------------------------
 
 // TPS 1
@@ -35,7 +35,7 @@ int outputVeTPS = 0;
 
 // Cartão SD
 #define SD_CS_PIN 15
-#define LED_BUILTIN 2
+#define LED_BUILTIN 16
 //-----------------------------
 
 // Cebolinha
@@ -44,13 +44,39 @@ int sensorCEBOLINHA = 0; // Variável para armazenar o valor lido do sensor
 //-----------------------------
 
 // Infravermelho
-#define infra1 0
-#define infra2 4
+#define infra1 34
+#define infra2 35
 float velocidade1 = 0.0;
 float velocidade2 = 0.0;
 float velocidade = 0.0;
 const float raio = 0.3; // Raio da roda em metros
 //-----------------------------
+
+float speed(int pin)
+{
+    int Time;
+    int lasTime;
+    int difference;
+    int lapCount = 0;
+    float rpm = 0;
+    float velocidade = 0.0;
+
+    Time = lasTime = difference = 0;
+
+    if (digitalRead(pin) == HIGH) // O sensor indentifica apenas preto e branco, logo, quando o sensor detecta preto, o valor é HIGH
+    {
+        Time = millis();
+        difference = Time - lasTime;
+        if (difference > 100)
+        {
+            lapCount++;
+            rpm = (lapCount * 60000) / Time;
+            velocidade = ((rpm * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
+            lasTime = Time;
+        }
+    }
+    return velocidade;
+}
 
 void setup()
 {
@@ -163,30 +189,4 @@ void loop()
         Serial.println("Erro ao abrir o arquivo");
     }
     delay(150);
-}
-
-float speed(int pin)
-{
-    int Time;
-    int lasTime;
-    int difference;
-    int lapCount = 0;
-    float rpm = 0;
-    float velocidade = 0.0;
-
-    Time = lasTime = difference = 0;
-
-    if (analogRead(pin) > 1000)
-    {
-        Time = millis();
-        difference = Time - lasTime;
-        if (difference > 100)
-        {
-            lapCount++;
-            rpm = (lapCount * 60000) / Time;
-            velocidade = ((rpm * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
-            lasTime = Time;
-        }
-    }
-    return velocidade;
 }
