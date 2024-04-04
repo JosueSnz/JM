@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <BluetoothSerial.h>
 #include <esp_system.h>
-#include <LiquidCrystal.h>
 #include <Wire.h>
+#include <LiquidCrystal.h>
 #include <SPI.h>
 #include <SD.h>
 
@@ -40,8 +40,8 @@ File myFile;
 //-----------------------------
 
 // Cebolinha
-const int CEBOLINHA 25 // Pino do sensor
-int sensorCEBOLINHA = 0; // Variável para armazenar o valor lido do sensor
+const int CEBOLINHA = 39; // Pino do sensor
+int sensorCEBOLINHA = 0;  // Variável para armazenar o valor lido do sensor
 //-----------------------------
 
 // Infravermelho
@@ -54,7 +54,7 @@ const float raio = 0.21; // Raio da roda em metros
 //-----------------------------
 
 // LCD
-LiquidCrystal lcd(2, 15, 14, 12, 13);
+LiquidCrystal lcd(25, 16, 5, 4, 0, 2);
 //-----------------------------
 
 float speed(int pin)
@@ -65,7 +65,7 @@ float speed(int pin)
     float rpm = 0;
     float velocidade = 0.0;
 
-    Time = lasTime = difference = 0;
+    Time = 0;
 
     if (digitalRead(pin) == HIGH) // O sensor indentifica apenas preto e branco, logo, quando o sensor detecta preto, o valor é HIGH
     {
@@ -140,7 +140,7 @@ void setup()
     pinMode(infra2, INPUT); // Pino para ler o sinal no coletor do fototransistor
 
     // Inicializando o LCD
-    lcd.begin(13, 2);
+    lcd.begin(16, 2);
     lcd.print("Velocidade:");
 }
 
