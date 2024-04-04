@@ -53,7 +53,7 @@ float velocidade = 0.0;
 const float raio = 0.21; // Raio da roda em metros
 //-----------------------------
 
-// LCD
+// LCD RS (Register Select) - Pin 25 // Enable - Pin 16 // D4 - Pin 5 // D5 - Pin 4 // D6 - Pin 0 // D7 - Pin 2
 LiquidCrystal lcd(25, 16, 5, 4, 0, 2);
 //-----------------------------
 
@@ -91,7 +91,7 @@ void WriteFile(const char *path, const char *message)
     }
     else
     {
-        Serial.println("erro ao abrir o arrquivo");
+        Serial.println("erro ao abrir o arquivo");
     }
 }
 
@@ -102,8 +102,9 @@ void setup()
     while (!Serial)
         delay(10);
 
+    Serial.println("\nGrupo Cheetah");
     Serial.println("Iniciando SD card...");
-    Serial.println("\n==============================================");
+    Serial.println("==============================================");
     Serial.print("MOSI: ");
     Serial.println(MOSI);
     Serial.print("MISO: ");
@@ -222,19 +223,19 @@ void loop()
     //-----------------------------
 
     // Resultados dos sensores Terminal
-    Serial.print("\nTPS1 = ");
-    Serial.println(sensorTPS1);
-    Serial.print("\nTPS2 = ");
-    Serial.println(sensorTPS2);
-    Serial.print("\nCEBOLINHA = ");
-    Serial.println(sensorCEBOLINHA);
-    Serial.print("\nVelocidade = ");
-    Serial.println(velocidade);
+    SerialBT.print("\nTPS1 = ");
+    SerialBT.println(sensorTPS1);
+    SerialBT.print("\nTPS2 = ");
+    SerialBT.println(sensorTPS2);
+    SerialBT.print("\nCEBOLINHA = ");
+    SerialBT.println(sensorCEBOLINHA);
+    SerialBT.print("\nVelocidade = ");
+    SerialBT.println(velocidade);
 
     // Gravando os dados no cartão SD
     dataMessage = String(sensorTPS1) + "," + String(sensorTPS2) + "," + String(sensorCEBOLINHA) + "," + String(velocidade) + "\r\n";
-    Serial.print("Salvando Arquivos: ");
-    Serial.println(dataMessage);
+    SerialBT.print("Salvando Arquivos: ");
+    SerialBT.println(dataMessage);
 
     WriteFile("/data.txt", dataMessage.c_str());
     // myFile.println(data);
