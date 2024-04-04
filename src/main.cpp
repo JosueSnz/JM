@@ -13,8 +13,8 @@ char valorRecebido;       // Variável para armazenar o valor recebido
 
 // Led Piloto
 #define LED_vermelho 0 // Até 100% do TPS
-#define LED_azul 4     // Até 75% do TPS
-#define LED_azul2 16   // Até 50% do TPS
+#define LED_azul2 4    // Até 75% do TPS
+#define LED_azul 16    // Até 50% do TPS
 #define LED_verde 17   // Até 25% do TPS
 //-----------------------------
 
@@ -40,7 +40,7 @@ File myFile;
 //-----------------------------
 
 // Cebolinha
-const int CEBOLINHA 25  // Pino do sensor
+const int CEBOLINHA 25 // Pino do sensor
 int sensorCEBOLINHA = 0; // Variável para armazenar o valor lido do sensor
 //-----------------------------
 
