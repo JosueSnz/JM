@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <BluetoothSerial.h>
 #include <esp_system.h>
-// #include <LiquidCrystal_I2C.h>
+#include <LiquidCrystal.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
@@ -12,10 +12,10 @@ char valorRecebido;       // Variável para armazenar o valor recebido
 //-----------------------------
 
 // Led Piloto
-#define LED_vermelho 19 // Até 100% do TPS
-#define LED_azul 18     // Até 75% do TPS
-#define LED_azul2 5     // Até 50% do TPS
-#define LED_verde 17    // Até 25% do TPS
+#define LED_vermelho 0 // Até 100% do TPS
+#define LED_azul 4     // Até 75% do TPS
+#define LED_azul2 16   // Até 50% do TPS
+#define LED_verde 17   // Até 25% do TPS
 //-----------------------------
 
 // TPS 1
@@ -34,12 +34,13 @@ int outputVeTPS = 0;
 //-----------------------------
 
 // Cartão SD
-#define SD_CS_PIN 15
-#define LED_BUILTIN 16
+const int CS = 5;
+String dataMessage;
+File myFile;
 //-----------------------------
 
 // Cebolinha
-#define CEBOLINHA 25
+const int CEBOLINHA 25  // Pino do sensor
 int sensorCEBOLINHA = 0; // Variável para armazenar o valor lido do sensor
 //-----------------------------
 
@@ -49,14 +50,17 @@ int sensorCEBOLINHA = 0; // Variável para armazenar o valor lido do sensor
 float velocidade1 = 0.0;
 float velocidade2 = 0.0;
 float velocidade = 0.0;
-const float raio = 0.3; // Raio da roda em metros
+const float raio = 0.21; // Raio da roda em metros
+//-----------------------------
+
+// LCD
+LiquidCrystal lcd(2, 15, 14, 12, 13);
 //-----------------------------
 
 float speed(int pin)
 {
     int Time;
-    int lasTime;
-    int difference;
+    int ativado = 0;
     int lapCount = 0;
     float rpm = 0;
     float velocidade = 0.0;
@@ -66,49 +70,82 @@ float speed(int pin)
     if (digitalRead(pin) == HIGH) // O sensor indentifica apenas preto e branco, logo, quando o sensor detecta preto, o valor é HIGH
     {
         Time = millis();
-        difference = Time - lasTime;
-        if (difference > 100)
+        ++ativado;
+        if (ativado == 12)
         {
             lapCount++;
             rpm = (lapCount * 60000) / Time;
             velocidade = ((rpm * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
-            lasTime = Time;
         }
     }
     return velocidade;
 }
 
+void WriteFile(const char *path, const char *message)
+{
+    myFile = SD.open(path, FILE_APPEND);
+    if (myFile)
+    {
+        myFile.println(message);
+        myFile.close();
+    }
+    else
+    {
+        Serial.println("erro ao abrir o arrquivo");
+    }
+}
+
 void setup()
 {
     SerialBT.begin("esp32"); // Nome do dispositivo Bluetooth
+    Serial.begin(115200);
+    while (!Serial)
+        delay(10);
 
-    SPI.begin(); // Inicializa a comunicação SPI para o cartão SD
+    Serial.println("Iniciando SD card...");
+    Serial.println("\n==============================================");
+    Serial.print("MOSI: ");
+    Serial.println(MOSI);
+    Serial.print("MISO: ");
+    Serial.println(MISO);
+    Serial.print("SCK: ");
+    Serial.println(SCK);
+    Serial.print("CS: ");
+    Serial.println(SS);
+    Serial.println("==============================================\n");
+    Serial.println("");
+    delay(100);
 
-    // Inicializa o cartão SD com o pino CS especificado
-    if (!SD.begin(SD_CS_PIN))
+    Serial.println("Iniciando SD card...");
+    if (!SD.begin(CS))
     {
-        Serial.println("Erro ao inicializar o cartão SD");
-        return;
+        Serial.println("SD card falhou!");
+        while (1)
+        {
+            delay(10);
+        }
     }
-    Serial.println("Cartão SD inicializado com sucesso");
+    Serial.println("SD card inicialização completa.");
+
+    // Create a header in the file
+    WriteFile("/data.txt", "TPS1, TPS2, CEBOLINHA, VELOCIDADE, TEMP1, TEMP2, TEMP3, TEMP4 \r\n");
 
     // Inicializando os pinos dos LEDs
     pinMode(LED_vermelho, OUTPUT);
     pinMode(LED_azul, OUTPUT);
     pinMode(LED_azul2, OUTPUT);
     pinMode(LED_verde, OUTPUT);
-    pinMode(LED_BUILTIN, OUTPUT);
 
-    pinMode(CEBOLINHA, INPUT); // Pino para ler o sinal no sensor de pressão
-    pinMode(infra1, INPUT);    // Pino para ler o sinal no coletor do fototransistor
-    pinMode(infra2, INPUT);    // Pino para ler o sinal no coletor do fototransistor
+    pinMode(infra1, INPUT); // Pino para ler o sinal no coletor do fototransistor
+    pinMode(infra2, INPUT); // Pino para ler o sinal no coletor do fototransistor
+
+    // Inicializando o LCD
+    lcd.begin(13, 2);
+    lcd.print("Velocidade:");
 }
 
 void loop()
 {
-    // Cria data.txt para armazenar os dados
-    File dataFile = SD.open("/data.txt", FILE_WRITE);
-
     // Caso seja necessário reiniciar o ESP32
     valorRecebido = (char)SerialBT.read();
     if (valorRecebido == '1')
@@ -132,14 +169,31 @@ void loop()
     sensorTPS2 = analogRead(TPS2);
     sensorCEBOLINHA = analogRead(CEBOLINHA);
 
-    // Verificar se os valores estão dentro da margem de 5%
-    if (abs(sensorTPS1 - sensorTPS2) <= 0.10 * sensorTPS1)
+    // Verificar se os valores estão dentro da margem de 1%
+    if (abs(sensorTPS1 - sensorTPS2) <= 0.01 * sensorTPS1)
     {
         // Mapeando o valor do sensor para o valor do led, verificar amplitude do TPS
         outputVeTPS = map(sensorTPS1, 0, 1023, 0, 255);
         outputATPS = map(sensorTPS1, 1023, 2046, 0, 255);
         outputA2TPS = map(sensorTPS1, 2046, 3069, 0, 255);
         outputVTPS = map(sensorTPS1, 3069, 4095, 0, 255);
+
+        // Controlando a taxa de variação dos LEDs
+        if (sensorTPS1 <= 1023)
+        {
+            outputATPS = 0;
+            outputA2TPS = 0;
+            outputVTPS = 0;
+        }
+        else if (sensorTPS1 <= 2046)
+        {
+            outputA2TPS = 0;
+            outputVTPS = 0;
+        }
+        else if (sensorTPS1 <= 3069)
+        {
+            outputVTPS = 0;
+        }
 
         // Mudando a intensidade do led
         analogWrite(LED_vermelho, outputVTPS);
@@ -149,13 +203,21 @@ void loop()
     }
     else
     {
-        // Caso os valores estejam fora da margem de 10% apenas o led vermelho é aceso (100% do TPS)
-        Serial.print("\nOs valores dos sensores estão fora da margem de 10%");
+        // Caso os valores estejam fora da margem de 1% apenas o led vermelho é aceso (100% do TPS)
+        Serial.print("\nOs valores dos sensores estão fora da margem de 1%");
         analogWrite(LED_vermelho, 255);
         analogWrite(LED_azul, 0);
         analogWrite(LED_azul2, 0);
         analogWrite(LED_verde, 0);
     }
+
+    //-----------------------------
+
+    // Exibir a velocidade no LCD
+    lcd.setCursor(0, 1);
+    lcd.print("          "); // Limpar a linha
+    lcd.setCursor(0, 1);
+    lcd.print(velocidade); // Exibir a velocidade
 
     //-----------------------------
 
@@ -170,23 +232,13 @@ void loop()
     Serial.println(velocidade);
 
     // Gravando os dados no cartão SD
-    if (dataFile)
-    {
-        dataFile.print("\nTPS1 = ");
-        dataFile.println(sensorTPS1);
-        dataFile.print("\nTPS2 = ");
-        dataFile.println(sensorTPS2);
-        dataFile.print("\nCEBOLINHA = ");
-        dataFile.println(sensorCEBOLINHA);
-        dataFile.print("\nVelocidade = ");
-        dataFile.println(velocidade);
-        dataFile.close();
-        Serial.println("Dados gravados com sucesso");
-        digitalWrite(LED_BUILTIN, HIGH);
-    }
-    else
-    {
-        Serial.println("Erro ao abrir o arquivo");
-    }
+    dataMessage = String(sensorTPS1) + "," + String(sensorTPS2) + "," + String(sensorCEBOLINHA) + "," + String(velocidade) + "\r\n";
+    Serial.print("Salvando Arquivos: ");
+    Serial.println(dataMessage);
+
+    WriteFile("/data.txt", dataMessage.c_str());
+    // myFile.println(data);
+
+    myFile.close();
     delay(150);
 }

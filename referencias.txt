@@ -1,3 +1,6 @@
 https://blog.zerokol.com/2012/11/tcrt5000-reflective-optical-sensor.html // como conectar o sensor Infravermelho
 https://www.youtube.com/watch?v=V34pW5XT2tU // usando o barramento i2C
 https://www.youtube.com/watch?v=5OSPk5oHhVM // como conectar um LCD pelo barramento i2C
+https://randomnerdtutorials-com.translate.goog/esp32-microsd-card-arduino/?_x_tr_sl=en&_x_tr_tl=pt&_x_tr_hl=pt-BR&_x_tr_pto=sc#microsdcardtype
+https://www.youtube.com/watch?v=C_-I37yTd5A
+https://www.youtube.com/watch?v=LlQDNKeXkIY
