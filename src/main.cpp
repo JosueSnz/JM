@@ -51,35 +51,19 @@ float velocidade1 = 0.0;
 float velocidade2 = 0.0;
 float velocidade = 0.0;
 const float raio = 0.21; // Raio da roda em metros
+int Time1 = 0;
+int ativado1 = 0;
+int lapCount1 = 0;
+float rpm1 = 0;
+int Time2 = 0;
+int ativado2 = 0;
+int lapCount2 = 0;
+float rpm2 = 0;
 //-----------------------------
 
 // LCD RS (Register Select) - Pin 25 // Enable - Pin 16 // D4 - Pin 5 // D5 - Pin 4 // D6 - Pin 0 // D7 - Pin 2
 LiquidCrystal lcd(25, 16, 5, 4, 0, 2);
 //-----------------------------
-
-float speed(int pin)
-{
-    int Time;
-    int ativado = 0;
-    int lapCount = 0;
-    float rpm = 0;
-    float velocidade = 0.0;
-
-    Time = 0;
-
-    if (digitalRead(pin) == HIGH) // O sensor indentifica apenas preto e branco, logo, quando o sensor detecta preto, o valor é HIGH
-    {
-        Time = millis();
-        ++ativado;
-        if (ativado == 12)
-        {
-            lapCount++;
-            rpm = (lapCount * 60000) / Time;
-            velocidade = ((rpm * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
-        }
-    }
-    return velocidade;
-}
 
 void WriteFile(const char *path, const char *message)
 {
@@ -159,8 +143,30 @@ void loop()
     //-----------------------------
 
     // Lendo o valor do sensor infravermelho
-    velocidade1 = speed(infra1);
-    velocidade2 = speed(infra2);
+    Time1 = millis();
+    if (digitalRead(infra1) == HIGH) // O sensor indentifica apenas preto e branco, logo, quando o sensor detecta preto, o valor é HIGH
+    {
+        ++ativado1;
+        if (ativado1 % 12 == 0)
+        {
+            lapCount1++;
+        }
+    }
+    rpm1 = (lapCount1 * 60000) / Time1;
+    velocidade1 = ((rpm1 * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
+
+    Time2 = millis();
+    if (digitalRead(infra2) == HIGH)
+    {
+        ++ativado2;
+        if (ativado2 % 12 == 0)
+        {
+            lapCount2++;
+        }
+    }
+    rpm2 = (lapCount2 * 60000) / Time2;
+    velocidade2 = ((rpm2 * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
+
     velocidade = (velocidade1 + velocidade2) / 2; // Pegar daqui para o painel
 
     //-----------------------------
