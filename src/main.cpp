@@ -11,12 +11,18 @@ BluetoothSerial SerialBT; // Define BluetoothSerial object
 char valorRecebido;       // Variável para armazenar o valor recebido
 //-----------------------------
 
+// Filtro de sinal
+#define num 10 // número de iterações da média móvel
+long moving_average(int sig);
+int values[num]; // vetor com num posições, armazena os valores para cálculo da média móvel
+//-----------------------------
+
 // Led Piloto
 #define LED_vermelho 0 // Até 100% do TPS
 #define LED_azul2 4    // Até 75% do TPS
 #define LED_azul 16    // Até 50% do TPS
 #define LED_verde 17   // Até 25% do TPS
-//-----------------------------
+//------------------------------
 
 // TPS 1
 const int TPS1 = 32;
@@ -47,22 +53,22 @@ int sensorCEBOLINHA = 0;  // Variável para armazenar o valor lido do sensor
 // Infravermelho
 #define infra1 34
 #define infra2 35
+
+unsigned long faixa1, periodo1, volta1, faixa2, periodo2, volta2;
+unsigned long rpm1, rpm2;
+unsigned long timer1, timer2;
+bool sensorInfra1 = 0;
+bool sensorInfra2 = 0;
+
 float velocidade1 = 0.0;
 float velocidade2 = 0.0;
 float velocidade = 0.0;
-const float raio = 0.21; // Raio da roda em metros
-int Time1 = 0;
-int ativado1 = 0;
-int lapCount1 = 0;
-float rpm1 = 0;
-int Time2 = 0;
-int ativado2 = 0;
-int lapCount2 = 0;
-float rpm2 = 0;
+
+const float raio = 0.05; // Raio da caixa de rodas em metros
 //-----------------------------
 
-// LCD RS (Register Select) - Pin 25 // Enable - Pin 16 // D4 - Pin 5 // D5 - Pin 4 // D6 - Pin 0 // D7 - Pin 2
-LiquidCrystal lcd(25, 16, 5, 4, 0, 2);
+// LCD RS (Register Select) - Pin 13 // Enable - Pin 12 // D4 - Pin 14 // D5 - Pin 25 // D6 - Pin 15 // D7 - Pin 2
+LiquidCrystal lcd(13, 12, 14, 25, 15, 2);
 //-----------------------------
 
 void WriteFile(const char *path, const char *message)
@@ -143,41 +149,45 @@ void loop()
     //-----------------------------
 
     // Lendo o valor do sensor infravermelho
-    Time1 = millis();
-    if (digitalRead(infra1) == HIGH) // O sensor indentifica apenas preto e branco, logo, quando o sensor detecta preto, o valor é HIGH
+    sensorInfra1 = digitalRead(infra1);
+    if (sensorInfra1 == 1)
     {
-        ++ativado1;
-        if (ativado1 % 12 == 0)
+        faixa1++;
+        timer1 = millis();
+        if (faixa1 % 12 == 0)
         {
-            lapCount1++;
+            volta1++;
+            periodo1 = millis() - timer1;
         }
     }
-    rpm1 = (lapCount1 * 60000) / Time1;
+    rpm1 = (volta1 * 60000) / periodo1;
+
+    sensorInfra2 = digitalRead(infra2);
+    if (sensorInfra2 == 1)
+    {
+        faixa2++;
+        timer2 = millis();
+        if (faixa2 % 12 == 0)
+        {
+            volta2++;
+            periodo2 = millis() - timer2;
+        }
+    }
+    rpm2 = (volta2 * 60000) / periodo2;
+
     velocidade1 = ((rpm1 * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
-
-    Time2 = millis();
-    if (digitalRead(infra2) == HIGH)
-    {
-        ++ativado2;
-        if (ativado2 % 12 == 0)
-        {
-            lapCount2++;
-        }
-    }
-    rpm2 = (lapCount2 * 60000) / Time2;
     velocidade2 = ((rpm2 * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
-
-    velocidade = (velocidade1 + velocidade2) / 2; // Pegar daqui para o painel
+    velocidade = (velocidade1 + velocidade2) / 2;        // Pegar daqui para o painel
 
     //-----------------------------
 
     // Lendo o valor do sensor TPS e cebolinha
-    sensorTPS1 = analogRead(TPS1);
-    sensorTPS2 = analogRead(TPS2);
-    sensorCEBOLINHA = analogRead(CEBOLINHA);
+    sensorTPS1 = moving_average(analogRead(TPS1));
+    sensorTPS2 = moving_average(analogRead(TPS2));
+    sensorCEBOLINHA = moving_average(analogRead(CEBOLINHA));
 
-    // Verificar se os valores estão dentro da margem de 1%
-    if (abs(sensorTPS1 - sensorTPS2) <= 0.01 * sensorTPS1)
+    // Verificar se os valores estão dentro da margem de 1% abs(sensorTPS1 - sensorTPS2) <=  1* sensorTPS1
+    if (true)
     {
         // Mapeando o valor do sensor para o valor do led, verificar amplitude do TPS
         outputVeTPS = map(sensorTPS1, 0, 1023, 0, 255);
@@ -248,4 +258,23 @@ void loop()
 
     myFile.close();
     delay(150);
+}
+
+long moving_average(int sig)
+{
+    int i;        // variável auxiliar para iterações
+    long acc = 0; // acumulador
+
+    // Desloca o vetor completamente eliminando o valor mais antigo
+    for (i = num; i > 0; i--)
+        values[i] = values[i - 1];
+
+    values[0] = sig; // carrega o sinal no primeiro elemento do vetor
+
+    // long sum = 0;            //Variável para somatório
+
+    for (i = 0; i < num; i++)
+        acc += values[i];
+
+    return acc / num; // Retorna a média móvel
 }
