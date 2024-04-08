@@ -12,7 +12,7 @@ char valorRecebido;       // Variável para armazenar o valor recebido
 //-----------------------------
 
 // Filtro de sinal
-#define num 10 // número de iterações da média móvel
+#define num 5 // número de iterações da média móvel
 long moving_average(int sig);
 int values[num]; // vetor com num posições, armazena os valores para cálculo da média móvel
 //-----------------------------
@@ -150,30 +150,32 @@ void loop()
 
     // Lendo o valor do sensor infravermelho
     sensorInfra1 = digitalRead(infra1);
-    if (sensorInfra1 == 1)
+    if (sensorInfra1 == 1 && faixa1 % 2 != 0) // Se o sensor estiver ativo e a faixa for impar, comeca a contar o tempo
     {
         faixa1++;
         timer1 = millis();
-        if (faixa1 % 12 == 0)
-        {
-            volta1++;
-            periodo1 = millis() - timer1;
-        }
     }
-    rpm1 = (volta1 * 60000) / periodo1;
+    else if (sensorInfra1 == 1 && faixa1 % 2 == 0) // Se o sensor estiver ativo e a faixa for par, diferanca de tempo entre as faixas
+    {
+        faixa1++;
+        periodo1 = millis() - timer1;
+        volta1++;
+    }
+    rpm1 = (volta1 * 60000) / (periodo1 * 12);
 
     sensorInfra2 = digitalRead(infra2);
-    if (sensorInfra2 == 1)
+    if (sensorInfra2 == 1 && faixa2 % 2 != 0) // Se o sensor estiver ativo e a faixa for impar, comeca a contar o tempo
     {
         faixa2++;
         timer2 = millis();
-        if (faixa2 % 12 == 0)
-        {
-            volta2++;
-            periodo2 = millis() - timer2;
-        }
     }
-    rpm2 = (volta2 * 60000) / periodo2;
+    else if (sensorInfra2 == 1 && faixa2 % 2 == 0) // Se o sensor estiver ativo e a faixa for par, diferanca de tempo entre as faixas
+    {
+        faixa2++;
+        periodo2 = millis() - timer2;
+        volta2++;
+    }
+    rpm2 = (volta2 * 60000) / (periodo2 * 12); // *12 pois temos 12 faixas
 
     velocidade1 = ((rpm1 * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
     velocidade2 = ((rpm2 * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
@@ -257,7 +259,7 @@ void loop()
     // myFile.println(data);
 
     myFile.close();
-    delay(150);
+    delay(250);
 }
 
 long moving_average(int sig)
