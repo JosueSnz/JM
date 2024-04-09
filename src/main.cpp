@@ -184,12 +184,12 @@ void loop()
     //-----------------------------
 
     // Lendo o valor do sensor TPS e cebolinha
-    sensorTPS1 = moving_average(analogRead(TPS1));
+    sensorTPS1 = analogRead(TPS1);
     sensorTPS2 = moving_average(analogRead(TPS2));
-    sensorCEBOLINHA = moving_average(analogRead(CEBOLINHA));
+    sensorCEBOLINHA = analogRead(CEBOLINHA);
 
-    // Verificar se os valores estão dentro da margem de 1% abs(sensorTPS1 - sensorTPS2) <=  1* sensorTPS1
-    if (true)
+    // Verificar se os valores estão dentro da margem de 1% abs(sensorTPS1 - sensorTPS2) <=  1* sensorTPS1 e se o freio nao esta sendo acionado
+    if (abs(sensorTPS1 - sensorTPS2) <=  1* sensorTPS1 and sensorCEBOLINHA < 300)
     {
         // Mapeando o valor do sensor para o valor do led, verificar amplitude do TPS
         outputVeTPS = map(sensorTPS1, 0, 1023, 0, 255);
@@ -222,12 +222,9 @@ void loop()
     }
     else
     {
-        // Caso os valores estejam fora da margem de 1% apenas o led vermelho é aceso (100% do TPS)
-        Serial.print("\nOs valores dos sensores estão fora da margem de 1%");
-        analogWrite(LED_vermelho, 255);
-        analogWrite(LED_azul, 0);
-        analogWrite(LED_azul2, 0);
-        analogWrite(LED_verde, 0);
+        // Caso os valores estejam fora da margem de 1% apenas o led vermelho é aceso (100% do TPS) ou o freio foi acionado
+        Serial.print("\nOs valores dos sensores estão fora da margem aceitavel ou foi apertado o freio");
+        digitalWrite(LED_vermelho, HIGH);
     }
 
     //-----------------------------
