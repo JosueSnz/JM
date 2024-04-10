@@ -54,17 +54,21 @@ int sensorCEBOLINHA = 0;  // Variável para armazenar o valor lido do sensor
 #define infra1 34
 #define infra2 35
 
-unsigned long faixa1, periodo1, volta1, faixa2, periodo2, volta2;
-unsigned long rpm1, rpm2;
-unsigned long timer1, timer2;
-bool sensorInfra1 = 0;
-bool sensorInfra2 = 0;
-
-float velocidade1 = 0.0;
-float velocidade2 = 0.0;
-float velocidade = 0.0;
-
-const float raio = 0.05; // Raio da caixa de rodas em metros
+const int faixa1 = 12;
+const int faixa2 = 12;
+const float diametro1 = 0.1;
+const float diametro2 = 0.1;
+const float circunferencia1 = (diametro1)*PI;
+const float circunferencia2 = (diametro2)*PI;
+const int timer1 = 1000;
+const int timer2 = 1000;
+volatile unsigned long pulseCount1 = 0;
+volatile unsigned long pulseCount2 = 0;
+unsigned long previousMillis1 = 0;
+unsigned long previousMillis2 = 0;
+float velocidade1 = 0;
+float velocidade2 = 0;
+float velocidade = 0;
 //-----------------------------
 
 // LCD RS (Register Select) - Pin 13 // Enable - Pin 12 // D4 - Pin 14 // D5 - Pin 25 // D6 - Pin 15 // D7 - Pin 2
@@ -129,6 +133,8 @@ void setup()
 
     pinMode(infra1, INPUT); // Pino para ler o sinal no coletor do fototransistor
     pinMode(infra2, INPUT); // Pino para ler o sinal no coletor do fototransistor
+    attachInterrupt(digitalPinToInterrupt(infra1), pulseCounter1, RISING);
+    attachInterrupt(digitalPinToInterrupt(infra2), pulseCounter2, RISING);
 
     // Inicializando o LCD
     lcd.begin(16, 2);
@@ -148,38 +154,36 @@ void loop()
 
     //-----------------------------
 
-    // Lendo o valor do sensor infravermelho
-    sensorInfra1 = digitalRead(infra1);
-    if (sensorInfra1 == 1 && faixa1 % 2 != 0) // Se o sensor estiver ativo e a faixa for impar, comeca a contar o tempo
-    {
-        faixa1++;
-        timer1 = millis();
-    }
-    else if (sensorInfra1 == 1 && faixa1 % 2 == 0) // Se o sensor estiver ativo e a faixa for par, diferanca de tempo entre as faixas
-    {
-        faixa1++;
-        periodo1 = millis() - timer1;
-        volta1++;
-    }
-    rpm1 = (volta1 * 60000) / (periodo1 * 12);
+    // Lendo a velocidade
+    unsigned long currentMillis1 = millis();
 
-    sensorInfra2 = digitalRead(infra2);
-    if (sensorInfra2 == 1 && faixa2 % 2 != 0) // Se o sensor estiver ativo e a faixa for impar, comeca a contar o tempo
+    if (currentMillis1 - previousMillis1 >= timer1)
     {
-        faixa2++;
-        timer2 = millis();
+        // Calcula as RPM
+        float rpm1 = (pulseCount1 * 60.0) / (faixa1 * (currentMillis1 - previousMillis1));
+        // Calcula a velocidade em km/h
+        velocidade1 = ((rpm1 * diametro1) / 60) * 3.6;
+        // Zera o contador de pulsos
+        pulseCount1 = 0;
+        // Atualiza o tempo anterior
+        previousMillis1 = currentMillis1;
     }
-    else if (sensorInfra2 == 1 && faixa2 % 2 == 0) // Se o sensor estiver ativo e a faixa for par, diferanca de tempo entre as faixas
-    {
-        faixa2++;
-        periodo2 = millis() - timer2;
-        volta2++;
-    }
-    rpm2 = (volta2 * 60000) / (periodo2 * 12); // *12 pois temos 12 faixas
 
-    velocidade1 = ((rpm1 * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
-    velocidade2 = ((rpm2 * 2 * 3.14 * raio) / 60) * 3.6; // Velocidade em km/h
-    velocidade = (velocidade1 + velocidade2) / 2;        // Pegar daqui para o painel
+    unsigned long currentMillis2 = millis();
+
+    if (currentMillis2 - previousMillis2 >= timer2)
+    {
+        // Calcula as RPM
+        float rpm2 = (pulseCount2 * 60.0) / (faixa2 * (currentMillis2 - previousMillis2));
+        // Calcula a velocidade em km/h
+        velocidade2 = ((rpm2 * diametro2) / 60) * 3.6;
+        // Zera o contador de pulsos
+        pulseCount2 = 0;
+        // Atualiza o tempo anterior
+        previousMillis2 = currentMillis2;
+    }
+
+    velocidade = (velocidade1 + velocidade2) / 2; // Usar para o LCD
 
     //-----------------------------
 
@@ -189,7 +193,7 @@ void loop()
     sensorCEBOLINHA = analogRead(CEBOLINHA);
 
     // Verificar se os valores estão dentro da margem de 1% abs(sensorTPS1 - sensorTPS2) <=  1* sensorTPS1 e se o freio nao esta sendo acionado
-    if (abs(sensorTPS1 - sensorTPS2) <=  1* sensorTPS1 and sensorCEBOLINHA < 300)
+    if (abs(sensorTPS1 - sensorTPS2) <= 1 * sensorTPS1 and sensorCEBOLINHA < 300)
     {
         // Mapeando o valor do sensor para o valor do led, verificar amplitude do TPS
         outputVeTPS = map(sensorTPS1, 0, 1023, 0, 255);
@@ -276,4 +280,14 @@ long moving_average(int sig)
         acc += values[i];
 
     return acc / num; // Retorna a média móvel
+}
+
+void pulseCounter1()
+{
+    pulseCount1++;
+}
+
+void pulseCounter2()
+{
+    pulseCount2++;
 }
