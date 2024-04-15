@@ -56,10 +56,9 @@ int sensorCEBOLINHA = 0;  // Variável para armazenar o valor lido do sensor
 
 const int faixa1 = 12;
 const int faixa2 = 12;
-const float diametro1 = 0.1;
-const float diametro2 = 0.1;
-const float circunferencia1 = (diametro1)*PI;
-const float circunferencia2 = (diametro2)*PI;
+const float diametro = 0.1;
+const float circunferencia1 = (diametro)*PI;
+const float circunferencia2 = (diametro)*PI;
 const int timer1 = 1000;
 const int timer2 = 1000;
 volatile unsigned long pulseCount1 = 0;
@@ -69,6 +68,9 @@ unsigned long previousMillis2 = 0;
 float velocidade1 = 0;
 float velocidade2 = 0;
 float velocidade = 0;
+
+void pulseCounter1();
+void pulseCounter2();
 //-----------------------------
 
 // LCD RS (Register Select) - Pin 13 // Enable - Pin 12 // D4 - Pin 14 // D5 - Pin 25 // D6 - Pin 15 // D7 - Pin 2
@@ -123,7 +125,7 @@ void setup()
     Serial.println("SD card inicialização completa.");
 
     // Create a header in the file
-    WriteFile("/data.txt", "TPS1, TPS2, CEBOLINHA, VELOCIDADE, TEMP1, TEMP2, TEMP3, TEMP4 \r\n");
+    WriteFile("/data.txt", "TPS1, TPS2, CEBOLINHA, VELOCIDADE, TEMP1, TEMP2, TEMP3, TEMP4 \r\n"); // é recomendado inserir os nomes manualmente
 
     // Inicializando os pinos dos LEDs
     pinMode(LED_vermelho, OUTPUT);
@@ -162,7 +164,7 @@ void loop()
         // Calcula as RPM
         float rpm1 = (pulseCount1 * 60.0) / (faixa1 * (currentMillis1 - previousMillis1));
         // Calcula a velocidade em km/h
-        velocidade1 = ((rpm1 * diametro1) / 60) * 3.6;
+        velocidade1 = ((rpm1 * diametro) / 60) * 3.6;
         // Zera o contador de pulsos
         pulseCount1 = 0;
         // Atualiza o tempo anterior
@@ -176,7 +178,7 @@ void loop()
         // Calcula as RPM
         float rpm2 = (pulseCount2 * 60.0) / (faixa2 * (currentMillis2 - previousMillis2));
         // Calcula a velocidade em km/h
-        velocidade2 = ((rpm2 * diametro2) / 60) * 3.6;
+        velocidade2 = ((rpm2 * diametro) / 60) * 3.6;
         // Zera o contador de pulsos
         pulseCount2 = 0;
         // Atualiza o tempo anterior
@@ -189,11 +191,11 @@ void loop()
 
     // Lendo o valor do sensor TPS e cebolinha
     sensorTPS1 = analogRead(TPS1);
-    sensorTPS2 = moving_average(analogRead(TPS2));
-    sensorCEBOLINHA = analogRead(CEBOLINHA);
+    sensorTPS2 = analogRead(TPS2);
+    sensorCEBOLINHA = digitalRead(CEBOLINHA);
 
-    // Verificar se os valores estão dentro da margem de 1% abs(sensorTPS1 - sensorTPS2) <=  1* sensorTPS1 e se o freio nao esta sendo acionado
-    if (abs(sensorTPS1 - sensorTPS2) <= 1 * sensorTPS1 and sensorCEBOLINHA < 300)
+    // Verificar se os valores estão dentro da margem de 1% e se o freio nao esta sendo acionado
+    if (abs(sensorTPS1 - sensorTPS2) <= 1 * sensorTPS1 && sensorCEBOLINHA == 0) // esta no modo teste, deve ser ajustado para 5% no projeto final
     {
         // Mapeando o valor do sensor para o valor do led, verificar amplitude do TPS
         outputVeTPS = map(sensorTPS1, 0, 1023, 0, 255);
@@ -226,9 +228,12 @@ void loop()
     }
     else
     {
-        // Caso os valores estejam fora da margem de 1% apenas o led vermelho é aceso (100% do TPS) ou o freio foi acionado
+        // Caso os valores estejam fora da margem de 5% apenas o led vermelho é aceso (100% do TPS) ou o freio foi acionado
         Serial.print("\nOs valores dos sensores estão fora da margem aceitavel ou foi apertado o freio");
-        digitalWrite(LED_vermelho, HIGH);
+        analogWrite(LED_vermelho, 255);
+        analogWrite(LED_azul, 0);
+        analogWrite(LED_azul2, 0);
+        analogWrite(LED_verde, 0);
     }
 
     //-----------------------------
@@ -260,9 +265,20 @@ void loop()
     // myFile.println(data);
 
     myFile.close();
-    delay(250);
+    delay(250); // para dados de teste e visualização, no projeto final deve ser retirado ou ajustado para (1)
 }
 
+void pulseCounter1()
+{
+    pulseCount1++;
+}
+
+void pulseCounter2()
+{
+    pulseCount2++;
+}
+
+// funcao apenas usada no teste, não será usada no projeto final
 long moving_average(int sig)
 {
     int i;        // variável auxiliar para iterações
@@ -280,14 +296,4 @@ long moving_average(int sig)
         acc += values[i];
 
     return acc / num; // Retorna a média móvel
-}
-
-void pulseCounter1()
-{
-    pulseCount1++;
-}
-
-void pulseCounter2()
-{
-    pulseCount2++;
 }
