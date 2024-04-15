@@ -11,7 +11,7 @@ Cebolinha
 -- concluido
 
 Infravermelho 
--- Parcialmente concluido
+-- concluido
 
 Leds de velocidade 
 -- concluido
@@ -24,3 +24,6 @@ Cartão SD
 
 Luz de freios
 -- concluido, chaveamento por transistor
+
+Possivelmente novos sensores
+- temperatura do acumulador

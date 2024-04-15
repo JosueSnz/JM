@@ -4,3 +4,7 @@ https://www.youtube.com/watch?v=5OSPk5oHhVM // como conectar um LCD pelo barrame
 https://randomnerdtutorials-com.translate.goog/esp32-microsd-card-arduino/?_x_tr_sl=en&_x_tr_tl=pt&_x_tr_hl=pt-BR&_x_tr_pto=sc#microsdcardtype
 https://www.youtube.com/watch?v=C_-I37yTd5A // cartao sd
 https://www.youtube.com/watch?v=LlQDNKeXkIY // cartao sd projeto 
+https://os.mbed.com/users/ronixas/code/MLX90614-IR_Temp_Sensor-change-address/file/039f25b3de3e/main.cpp/  // sensor de temperatura
+https://www.usinainfo.com.br/blog/multiplexador-i2c-com-bmp280-controle-ate-64-sensores-atraves-do-esp32/ // multiplexador I2C
+https://www.youtube.com/watch?v=t-gMQDGB-9g // erro comum ao tentar fazer o upload do esp32 no windows
+
