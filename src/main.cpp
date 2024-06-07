@@ -1,20 +1,23 @@
+// --------------------------------------------
+// Código para o JOÃO MIGUEL
+// Projeto: Grupo Cheetah
+// Autoria: Josué Benevides Sanchez
+// Data da ultima modificação: 20/04/2024
+// --------------------------------------------
+
 #include <Arduino.h>
 #include <BluetoothSerial.h>
 #include <esp_system.h>
 #include <Wire.h>
-#include <LiquidCrystal.h>
 #include <SPI.h>
 #include <SD.h>
+#include <LiquidCrystal_I2C.h>
+#include <ADXL345.h>
+#include <Adafruit_BMP085.h>
 
 // Bluetooth
 BluetoothSerial SerialBT; // Define BluetoothSerial object
 char valorRecebido;       // Variável para armazenar o valor recebido
-//-----------------------------
-
-// Filtro de sinal
-#define num 5 // número de iterações da média móvel
-long moving_average(int sig);
-int values[num]; // vetor com num posições, armazena os valores para cálculo da média móvel
 //-----------------------------
 
 // Led Piloto
@@ -46,8 +49,8 @@ File myFile;
 //-----------------------------
 
 // Cebolinha
-const int CEBOLINHA = 39; // Pino do sensor
-int sensorCEBOLINHA = 0;  // Variável para armazenar o valor lido do sensor
+#define CEBOLINHA 39     // Pino do sensor
+int sensorCEBOLINHA = 0; // Variável para armazenar o valor lido do sensor
 //-----------------------------
 
 // Infravermelho
@@ -73,8 +76,27 @@ void pulseCounter1();
 void pulseCounter2();
 //-----------------------------
 
-// LCD RS (Register Select) - Pin 13 // Enable - Pin 12 // D4 - Pin 14 // D5 - Pin 25 // D6 - Pin 15 // D7 - Pin 2
-LiquidCrystal lcd(13, 12, 14, 25, 15, 2);
+// LCD
+#define endereco 0x27 // Endereços comuns: 0x27, 0x3F
+#define colunas 16
+#define linhas 2
+
+LiquidCrystal_I2C lcd(endereco, colunas, linhas);
+//-----------------------------
+
+// Aceletometro
+const float alpha = 0.5;
+
+double fXg = 0;
+double fYg = 0;
+double fZg = 0;
+
+ADXL345 acc;
+//-----------------------------
+
+// Temperatura
+Adafruit_BMP085 bmp;
+float temperatura = 0;
 //-----------------------------
 
 void WriteFile(const char *path, const char *message)
@@ -82,7 +104,7 @@ void WriteFile(const char *path, const char *message)
     myFile = SD.open(path, FILE_APPEND);
     if (myFile)
     {
-        myFile.println(message);
+        myFile.print(message);
         myFile.close();
     }
     else
@@ -94,6 +116,7 @@ void WriteFile(const char *path, const char *message)
 void setup()
 {
     SerialBT.begin("esp32"); // Nome do dispositivo Bluetooth
+
     Serial.begin(115200);
     while (!Serial)
         delay(10);
@@ -123,9 +146,10 @@ void setup()
         }
     }
     Serial.println("SD card inicialização completa.");
+    delay(100);
 
     // Create a header in the file
-    WriteFile("/data.txt", "TPS1, TPS2, CEBOLINHA, VELOCIDADE, TEMP1, TEMP2, TEMP3, TEMP4 \r\n"); // é recomendado inserir os nomes manualmente
+    WriteFile("/data.txt", " "); // é recomendado inserir os nomes manualmente
 
     // Inicializando os pinos dos LEDs
     pinMode(LED_vermelho, OUTPUT);
@@ -133,14 +157,23 @@ void setup()
     pinMode(LED_azul2, OUTPUT);
     pinMode(LED_verde, OUTPUT);
 
-    pinMode(infra1, INPUT); // Pino para ler o sinal no coletor do fototransistor
-    pinMode(infra2, INPUT); // Pino para ler o sinal no coletor do fototransistor
+    pinMode(CEBOLINHA, INPUT); // Pino para ler o sinal do sensor cebolinha
+    pinMode(infra1, INPUT);    // Pino para ler o sinal no coletor do fototransistor
+    pinMode(infra2, INPUT);    // Pino para ler o sinal no coletor do fototransistor
     attachInterrupt(digitalPinToInterrupt(infra1), pulseCounter1, RISING);
     attachInterrupt(digitalPinToInterrupt(infra2), pulseCounter2, RISING);
+    acc.begin();
+    bmp.begin();
 
     // Inicializando o LCD
-    lcd.begin(16, 2);
-    lcd.print("Velocidade:");
+    lcd.init();
+    lcd.backlight();
+    lcd.clear();
+    lcd.print("Cheetah-E 2024");
+    lcd.setCursor(0, 1);
+    lcd.print("Iniciando...");
+    delay(2000);
+    lcd.clear();
 }
 
 void loop()
@@ -153,6 +186,22 @@ void loop()
         delay(2000);
         ESP.restart();
     }
+
+    //-----------------------------
+
+    // Lendo os valores do acelerômetro
+    double pitch, roll, Xg, Yg, Zg;
+    acc.read(&Xg, &Yg, &Zg);
+    fXg = Xg * alpha + (fXg * (1.0 - alpha));
+    fYg = Yg * alpha + (fYg * (1.0 - alpha));
+    fZg = Zg * alpha + (fZg * (1.0 - alpha));
+    roll = (atan2(-fYg, fZg) * 180.0) / M_PI;
+    pitch = (atan2(fXg, sqrt(fYg * fYg + fZg * fZg)) * 180.0) / M_PI;
+
+    //-----------------------------
+
+    // Lendo a temperatura
+    temperatura = bmp.readTemperature();
 
     //-----------------------------
 
@@ -194,28 +243,28 @@ void loop()
     sensorTPS2 = analogRead(TPS2);
     sensorCEBOLINHA = digitalRead(CEBOLINHA);
 
-    // Verificar se os valores estão dentro da margem de 1% e se o freio nao esta sendo acionado
-    if (abs(sensorTPS1 - sensorTPS2) <= 1 * sensorTPS1 && sensorCEBOLINHA == 0) // esta no modo teste, deve ser ajustado para 5% no projeto final
+    // Verificar se os valores estão dentro da margem de 5% e se o freio nao esta sendo acionado
+    if (abs(sensorTPS1 - sensorTPS2) <= 1 * sensorTPS1 && sensorCEBOLINHA == 1) // esta no modo teste, deve ser ajustado para 5% no projeto final
     {
         // Mapeando o valor do sensor para o valor do led, verificar amplitude do TPS
-        outputVeTPS = map(sensorTPS1, 0, 1023, 0, 255);
-        outputATPS = map(sensorTPS1, 1023, 2046, 0, 255);
-        outputA2TPS = map(sensorTPS1, 2046, 3069, 0, 255);
-        outputVTPS = map(sensorTPS1, 3069, 4095, 0, 255);
+        outputVeTPS = map(sensorTPS1, 0, 695, 0, 255);
+        outputATPS = map(sensorTPS1, 695, 1390, 0, 255);
+        outputA2TPS = map(sensorTPS1, 1390, 2085, 0, 255);
+        outputVTPS = map(sensorTPS1, 2085, 2700, 0, 255);
 
         // Controlando a taxa de variação dos LEDs
-        if (sensorTPS1 <= 1023)
+        if (sensorTPS1 <= 695)
         {
             outputATPS = 0;
             outputA2TPS = 0;
             outputVTPS = 0;
         }
-        else if (sensorTPS1 <= 2046)
+        else if (sensorTPS1 <= 1390)
         {
             outputA2TPS = 0;
             outputVTPS = 0;
         }
-        else if (sensorTPS1 <= 3069)
+        else if (sensorTPS1 <= 2085)
         {
             outputVTPS = 0;
         }
@@ -239,6 +288,8 @@ void loop()
     //-----------------------------
 
     // Exibir a velocidade no LCD
+    lcd.setCursor(0, 0);
+    lcd.print("VELOCIDADE: ");
     lcd.setCursor(0, 1);
     lcd.print("          "); // Limpar a linha
     lcd.setCursor(0, 1);
@@ -253,11 +304,17 @@ void loop()
     SerialBT.println(sensorTPS2);
     SerialBT.print("\nCEBOLINHA = ");
     SerialBT.println(sensorCEBOLINHA);
-    SerialBT.print("\nVelocidade = ");
+    SerialBT.print("\nVELOCIDADE = ");
     SerialBT.println(velocidade);
+    SerialBT.print("\nTEMPERATURA = ");
+    SerialBT.println(temperatura);
+    SerialBT.print("\nCAMPO 1 = ");
+    SerialBT.println(roll);
+    SerialBT.print("\nCAMPO 2 = ");
+    SerialBT.println(pitch);
 
     // Gravando os dados no cartão SD
-    dataMessage = String(sensorTPS1) + "," + String(sensorTPS2) + "," + String(sensorCEBOLINHA) + "," + String(velocidade) + "\r\n";
+    dataMessage = String(sensorTPS1) + "," + String(sensorTPS2) + "," + String(sensorCEBOLINHA) + "," + String(velocidade) + "," + String(temperatura) + "," + String(roll) + "," + String(pitch) + "\r\n";
     SerialBT.print("Salvando Arquivos: ");
     SerialBT.println(dataMessage);
 
@@ -265,7 +322,7 @@ void loop()
     // myFile.println(data);
 
     myFile.close();
-    delay(250); // para dados de teste e visualização, no projeto final deve ser retirado ou ajustado para (1)
+    delay(10); // para dados de teste e visualização, no projeto final deve ser retirado ou ajustado para (1)
 }
 
 void pulseCounter1()
@@ -276,24 +333,4 @@ void pulseCounter1()
 void pulseCounter2()
 {
     pulseCount2++;
-}
-
-// funcao apenas usada no teste, não será usada no projeto final
-long moving_average(int sig)
-{
-    int i;        // variável auxiliar para iterações
-    long acc = 0; // acumulador
-
-    // Desloca o vetor completamente eliminando o valor mais antigo
-    for (i = num; i > 0; i--)
-        values[i] = values[i - 1];
-
-    values[0] = sig; // carrega o sinal no primeiro elemento do vetor
-
-    // long sum = 0;            //Variável para somatório
-
-    for (i = 0; i < num; i++)
-        acc += values[i];
-
-    return acc / num; // Retorna a média móvel
 }
