@@ -1,29 +1,17 @@
 Partes do codigo do JM: 
 
-Sensores de temperatura 
--- pendente
--- Sensor que sera ligado no barramento i2C
-
 TPS 
--- concluido
-
 Cebolinha 
--- concluido
-
 Infravermelho 
--- concluido
-
 Leds de velocidade 
--- concluido
-
 Display 
--- concluido
-
 Cartão SD 
--- concluido
 
-Luz de freios
--- concluido, chaveamento por transistor
+Terminar:
+Acelerometro
+Giroscopio
+Sensor de temperatura 
+GPS
 
-Possivelmente novos sensores
-- temperatura do acumulador
+pino 16/17 agora é para o GPS
+realocado pin led 2/15

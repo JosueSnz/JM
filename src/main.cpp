@@ -2,7 +2,7 @@
 // Código para o JOÃO MIGUEL
 // Projeto: Grupo Cheetah
 // Autoria: Josué Benevides Sanchez
-// Data da ultima modificação: 20/04/2024
+// Data da ultima modificação: 16/06/2024
 // --------------------------------------------
 
 #include <Arduino.h>
@@ -12,19 +12,20 @@
 #include <SPI.h>
 #include <SD.h>
 #include <LiquidCrystal_I2C.h>
-#include <ADXL345.h>
-#include <Adafruit_BMP085.h>
+#include <TinyGPS.h>
+#include <SoftwareSerial.h>
 
 // Bluetooth
 BluetoothSerial SerialBT; // Define BluetoothSerial object
 char valorRecebido;       // Variável para armazenar o valor recebido
 //-----------------------------
 
-// Led Piloto
+// Painel Piloto
 #define LED_vermelho 0 // Até 100% do TPS
 #define LED_azul2 4    // Até 75% do TPS
-#define LED_azul 16    // Até 50% do TPS
-#define LED_verde 17   // Até 25% do TPS
+#define LED_azul 2     // Até 50% do TPS
+#define LED_verde 15   // Até 25% do TPS
+// #define Botao_Reset 12 // Botão de reset
 //------------------------------
 
 // TPS 1
@@ -84,20 +85,13 @@ void pulseCounter2();
 LiquidCrystal_I2C lcd(endereco, colunas, linhas);
 //-----------------------------
 
-// Aceletometro
-const float alpha = 0.5;
-
-double fXg = 0;
-double fYg = 0;
-double fZg = 0;
-
-ADXL345 acc;
+// Aceletometro / Giroscopio / Temperatura MPU6050
+const int MPU = 0x68;
+float AccX, AccY, AccZ, Temp, GyrX, GyrY, GyrZ;
 //-----------------------------
 
-// Temperatura
-Adafruit_BMP085 bmp;
-float temperatura = 0;
-//-----------------------------
+TinyGPS gps;
+SoftwareSerial ss(16, 17); // RX, TX
 
 void WriteFile(const char *path, const char *message)
 {
@@ -115,9 +109,13 @@ void WriteFile(const char *path, const char *message)
 
 void setup()
 {
-    SerialBT.begin("esp32"); // Nome do dispositivo Bluetooth
+    // SerialBT.begin("esp32"); // Nome do dispositivo Bluetooth
+
+    Wire.setClock(400000); // 400kHz, alterar caso nao de interferencia
 
     Serial.begin(115200);
+    ss.begin(9600); // Inicializa a comunicação serial com o GPS
+
     while (!Serial)
         delay(10);
 
@@ -146,6 +144,7 @@ void setup()
         }
     }
     Serial.println("SD card inicialização completa.");
+
     delay(100);
 
     // Create a header in the file
@@ -162,8 +161,37 @@ void setup()
     pinMode(infra2, INPUT);    // Pino para ler o sinal no coletor do fototransistor
     attachInterrupt(digitalPinToInterrupt(infra1), pulseCounter1, RISING);
     attachInterrupt(digitalPinToInterrupt(infra2), pulseCounter2, RISING);
-    acc.begin();
-    bmp.begin();
+
+    // Inicializa o MPU-6050
+    Wire.begin();
+    Wire.beginTransmission(MPU);
+    Wire.write(0x6B);
+    Wire.write(0);
+    Wire.endTransmission(true);
+
+    // Configura Giroscópio para fundo de escala desejado
+    /*
+        Wire.write(0b00000000); // fundo de escala em +/-250°/s
+        Wire.write(0b00001000); // fundo de escala em +/-500°/s
+        Wire.write(0b00010000); // fundo de escala em +/-1000°/s
+        Wire.write(0b00011000); // fundo de escala em +/-2000°/s
+    */
+    Wire.beginTransmission(MPU);
+    Wire.write(0x1B);
+    Wire.write(0b00001000); // Trocar esse comando para fundo de escala desejado conforme acima
+    Wire.endTransmission();
+
+    // Configura Acelerometro para fundo de escala desejado
+    /*
+        Wire.write(0b00000000); // fundo de escala em +/-2g
+        Wire.write(0b00001000); // fundo de escala em +/-4g
+        Wire.write(0b00010000); // fundo de escala em +/-8g
+        Wire.write(0b00011000); // fundo de escala em +/-16g
+    */
+    Wire.beginTransmission(MPU);
+    Wire.write(0x1C);
+    Wire.write(0b00001000); // Trocar esse comando para fundo de escala desejado conforme acima
+    Wire.endTransmission();
 
     // Inicializando o LCD
     lcd.init();
@@ -179,30 +207,62 @@ void setup()
 void loop()
 {
     // Caso seja necessário reiniciar o ESP32
-    valorRecebido = (char)SerialBT.read();
+    valorRecebido = (char)Serial.read();
     if (valorRecebido == '1')
     {
-        SerialBT.print("\nReiniciando o ESP32");
+        Serial.print("\nReiniciando o ESP32");
         delay(2000);
         ESP.restart();
     }
+    // if (digitalRead(Botao_Reset) == 1)
+    // {
+    //     SerialBT.print("\nReiniciando o ESP32");
+    //     delay(2000);
+    //     ESP.restart();
+    // }
 
     //-----------------------------
 
-    // Lendo os valores do acelerômetro
-    double pitch, roll, Xg, Yg, Zg;
-    acc.read(&Xg, &Yg, &Zg);
-    fXg = Xg * alpha + (fXg * (1.0 - alpha));
-    fYg = Yg * alpha + (fYg * (1.0 - alpha));
-    fZg = Zg * alpha + (fZg * (1.0 - alpha));
-    roll = (atan2(-fYg, fZg) * 180.0) / M_PI;
-    pitch = (atan2(fXg, sqrt(fYg * fYg + fZg * fZg)) * 180.0) / M_PI;
+    // Lendo os dados do GPS
+    float latitude, longitude, speed, altitude;
+    unsigned long age;
+    int year;
+    byte month, day, hour, minute, second;
 
-    //-----------------------------
+    // Solicita os dados ao GPS
+    gps.f_get_position(&latitude, &longitude, &age);
+    speed = gps.f_speed_kmph();
+    altitude = gps.f_altitude();
+    gps.crack_datetime(&year, &month, &day, &hour, &minute, &second);
 
-    // Lendo a temperatura
-    temperatura = bmp.readTemperature();
+    // Comandos para iniciar transmissão de dados
+    Wire.beginTransmission(MPU);
+    Wire.write(0x3B);
+    Wire.endTransmission(false);
+    Wire.requestFrom(MPU, 14, true); // Solicita os dados ao sensor
 
+    // Armazena o valor dos sensores nas variaveis correspondentes
+    AccX = Wire.read() << 8 | Wire.read(); // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)
+    AccY = Wire.read() << 8 | Wire.read(); // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
+    AccZ = Wire.read() << 8 | Wire.read(); // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
+    Temp = Wire.read() << 8 | Wire.read(); // 0x41 (TEMP_OUT_H) & 0x42 (TEMP_OUT_L)
+    GyrX = Wire.read() << 8 | Wire.read(); // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
+    GyrY = Wire.read() << 8 | Wire.read(); // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
+    GyrZ = Wire.read() << 8 | Wire.read(); // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
+
+    /* Alterar divisão conforme fundo de escala escolhido:
+        Acelerômetro
+        +/-2g = 16384
+        +/-4g = 8192
+        +/-8g = 4096
+        +/-16g = 2048
+
+        Giroscópio
+        +/-250°/s = 131
+        +/-500°/s = 65.6
+        +/-1000°/s = 32.8
+        +/-2000°/s = 16.4
+    */
     //-----------------------------
 
     // Lendo a velocidade
@@ -244,29 +304,45 @@ void loop()
     sensorCEBOLINHA = digitalRead(CEBOLINHA);
 
     // Verificar se os valores estão dentro da margem de 5% e se o freio nao esta sendo acionado
-    if (abs(sensorTPS1 - sensorTPS2) <= 1 * sensorTPS1 && sensorCEBOLINHA == 1) // esta no modo teste, deve ser ajustado para 5% no projeto final
+    if (sensorCEBOLINHA == 0) // esta no modo teste
     {
         // Mapeando o valor do sensor para o valor do led, verificar amplitude do TPS
-        outputVeTPS = map(sensorTPS1, 0, 695, 0, 255);
-        outputATPS = map(sensorTPS1, 695, 1390, 0, 255);
-        outputA2TPS = map(sensorTPS1, 1390, 2085, 0, 255);
-        outputVTPS = map(sensorTPS1, 2085, 2700, 0, 255);
+        outputVeTPS = map(sensorTPS1, 0, 516, 0, 255);
+        outputATPS = map(sensorTPS1, 516, 1032, 0, 255);
+        outputA2TPS = map(sensorTPS1, 1032, 1548, 0, 255);
+        outputVTPS = map(sensorTPS1, 1548, 2090, 0, 255);
 
         // Controlando a taxa de variação dos LEDs
-        if (sensorTPS1 <= 695)
+        if (sensorTPS1 <= 516)
         {
             outputATPS = 0;
             outputA2TPS = 0;
             outputVTPS = 0;
         }
-        else if (sensorTPS1 <= 1390)
+        else if (sensorTPS1 <= 1032)
         {
+            outputVeTPS = 255;
             outputA2TPS = 0;
             outputVTPS = 0;
         }
-        else if (sensorTPS1 <= 2085)
+        else if (sensorTPS1 <= 1548)
         {
+            outputVeTPS = 255;
+            outputATPS = 255;
             outputVTPS = 0;
+        }
+        else if (sensorTPS1 <= 2090)
+        {
+            outputVeTPS = 255;
+            outputATPS = 255;
+            outputA2TPS = 255;
+        }
+        else if (sensorTPS1 >= 2090)
+        {
+            outputVeTPS = 255;
+            outputATPS = 255;
+            outputA2TPS = 255;
+            outputVTPS = 255;
         }
 
         // Mudando a intensidade do led
@@ -287,42 +363,70 @@ void loop()
 
     //-----------------------------
 
-    // Exibir a velocidade no LCD
+    // Exibir a velocidade e temperatura no LCD
+    float TEMPC = ((Temp / 340.0) + 36.53) * 0.1; // Temperatura em graus Celsius
     lcd.setCursor(0, 0);
-    lcd.print("VELOCIDADE: ");
+    lcd.print("Temp: "); // Exibir a temperatura
+    lcd.print(TEMPC);
     lcd.setCursor(0, 1);
     lcd.print("          "); // Limpar a linha
     lcd.setCursor(0, 1);
+    lcd.print("Vel: ");    // Exibir a velocidade
     lcd.print(velocidade); // Exibir a velocidade
 
     //-----------------------------
+    // Armazena os dados para o cartao sd
+    String date = String(day) + "/" + String(month) + "/" + String(year);
+    String horario = String(hour) + ":" + String(minute) + ":" + String(second);
 
     // Resultados dos sensores Terminal
-    SerialBT.print("\nTPS1 = ");
-    SerialBT.println(sensorTPS1);
-    SerialBT.print("\nTPS2 = ");
-    SerialBT.println(sensorTPS2);
-    SerialBT.print("\nCEBOLINHA = ");
-    SerialBT.println(sensorCEBOLINHA);
-    SerialBT.print("\nVELOCIDADE = ");
-    SerialBT.println(velocidade);
-    SerialBT.print("\nTEMPERATURA = ");
-    SerialBT.println(temperatura);
-    SerialBT.print("\nCAMPO 1 = ");
-    SerialBT.println(roll);
-    SerialBT.print("\nCAMPO 2 = ");
-    SerialBT.println(pitch);
+    Serial.print("\nData = "); // Data GMT 0
+    Serial.println(date);
+    Serial.print("\nHorario = "); // Horario GMT 0
+    Serial.println(horario);
+
+    Serial.print("\nTPS1 = ");
+    Serial.println(sensorTPS1);
+    Serial.print("\nTPS2 = ");
+    Serial.println(sensorTPS2);
+    Serial.print("\nCEBOLINHA = ");
+    Serial.println(sensorCEBOLINHA);
+    Serial.print("\nVELOCIDADE = ");
+    Serial.println(velocidade);
+
+    Serial.print("\nLATITUDE = ");
+    Serial.println(latitude, 6);
+    Serial.print("\nLONGITUDE = ");
+    Serial.println(longitude, 6);
+    Serial.print("\nVELOCIDADE GPS = ");
+    Serial.println(speed); // KM/H
+    Serial.print("\nALTITUDE = ");
+    Serial.println(altitude);
+
+    Serial.print("\nTEMPERATURA = ");
+    Serial.println(((Temp / 340.0) + 36.53) * 0.1); // Temperatura em graus Celsius
+    Serial.print("\nVELOCIDADE ANGULAR X = ");
+    Serial.println(GyrX / 65.6); // Velocidade angular em graus por segundo, alterar a escala conforme escolhido
+    Serial.print("\nVELOCIDADE ANGULAR Y = ");
+    Serial.println(GyrY / 65.6); // Velocidade angular em graus por segundo, alterar a escala conforme escolhido
+    Serial.print("\nVELOCIDADE ANGULAR Z = ");
+    Serial.println(GyrZ / 65.6); // Velocidade angular em graus por segundo, alterar a escala conforme escolhido
+    Serial.print("\nACELERAÇÃO X = ");
+    Serial.println(AccX / 8192); // Aceleração em m/s², alterar a escala conforme escolhido
+    Serial.print("\nACELERAÇÃO Y = ");
+    Serial.println(AccY / 8192); // Aceleração em m/s², alterar a escala conforme escolhido
+    Serial.print("\nACELERAÇÃO Z = ");
+    Serial.println(AccZ / 8192); // Aceleração em m/s², alterar a escala conforme escolhido
 
     // Gravando os dados no cartão SD
-    dataMessage = String(sensorTPS1) + "," + String(sensorTPS2) + "," + String(sensorCEBOLINHA) + "," + String(velocidade) + "," + String(temperatura) + "," + String(roll) + "," + String(pitch) + "\r\n";
-    SerialBT.print("Salvando Arquivos: ");
-    SerialBT.println(dataMessage);
-
+    dataMessage = String(date) + "," + String(horario) + "," + String(sensorTPS1) + "," + String(sensorTPS2) + "," + String(sensorCEBOLINHA) + "," + String(velocidade) + "," + String(((Temp / 340) + 36.53) * 0.1) + "," + String(GyrX / 65.6) + "," + String(GyrY / 65.6) + "," + String(GyrZ / 65.6) + "," + String(AccX / 8192) + "," + String(AccY / 8192) + "," + String(AccZ / 8192) + "," + String(speed) + "," + String(latitude, 6) + "," + String(longitude, 6) + "," + String(altitude, 4) + "\r\n";
+    Serial.print("Salvando Arquivos: ");
+    Serial.println(dataMessage);
     WriteFile("/data.txt", dataMessage.c_str());
     // myFile.println(data);
 
     myFile.close();
-    delay(10); // para dados de teste e visualização, no projeto final deve ser retirado ou ajustado para (1)
+    delay(500); // para dados de teste e visualização
 }
 
 void pulseCounter1()
